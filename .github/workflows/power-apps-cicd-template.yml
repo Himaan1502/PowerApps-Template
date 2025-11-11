@@ -112,7 +112,7 @@ jobs:
           solution-type: Managed
 
       - name: Upload Managed Solution as Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: managed-solution
           path: out/managed/${{ inputs.solution-name }}_managed.zip
