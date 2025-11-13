@@ -51,7 +51,7 @@ jobs:
         with:
           solution-folder: solutions/${{ inputs.solution-name }}
           solution-file: out/managed/${{ inputs.solution-name }}_managed.zip
-          solution-type: Managed
+          solution-type: Unmanaged
 
       - name: Upload Managed Solution as Artifact
         uses: actions/upload-artifact@v4
