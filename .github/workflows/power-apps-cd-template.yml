@@ -11,6 +11,10 @@ on:
         required: true
         type: string
         description: 'URL of the target Power Platform environment for deployment'
+      target-environment:
+        required: true
+        type: string
+        description: 'Target environment name (DEV, UAT, PROD) - used for deployment settings file'
       run-build:
         required: false
         type: boolean
@@ -47,7 +51,7 @@ jobs:
         with:
           solution-folder: solutions/${{ inputs.solution-name }}
           solution-file: out/managed/${{ inputs.solution-name }}_managed.zip
-          solution-type: Unmanaged
+          solution-type: Managed
 
       - name: Upload Managed Solution as Artifact
         uses: actions/upload-artifact@v4
@@ -59,7 +63,7 @@ jobs:
     needs: build-managed-solution
     runs-on: windows-latest
     if: ${{ inputs.run-deploy }}
-    environment: production
+    environment: ${{ inputs.target-environment }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -73,7 +77,20 @@ jobs:
           name: managed-solution-${{ inputs.solution-name }}
           path: out/managed/
 
-      - name: Import Solution to Target
+      - name: Verify Deployment Settings File
+        run: |
+          $settingsFile = "settings/DeploymentSettings-${{ inputs.target-environment }}.json"
+          if (Test-Path $settingsFile) {
+            Write-Host "Deployment settings file found: $settingsFile"
+            Write-Host "File contents:"
+            Get-Content $settingsFile | Write-Host
+          } else {
+            Write-Host "WARNING: Deployment settings file not found: $settingsFile"
+            Write-Host "Deployment will proceed without connection references and environment variables override"
+          }
+        shell: pwsh
+
+      - name: Import Solution to Target with Deployment Settings
         uses: microsoft/powerplatform-actions/import-solution@v1
         with:
           environment-url: ${{ inputs.target-environment-url }}
@@ -83,6 +100,8 @@ jobs:
           solution-file: out/managed/${{ inputs.solution-name }}_managed.zip
           force-overwrite: true
           publish-changes: true
+          use-deployment-settings-file: true
+          deployment-settings-file: settings/DeploymentSettings-${{ inputs.target-environment }}.json
 
       - name: Publish Solution
         uses: microsoft/powerplatform-actions/publish-solution@v1
@@ -91,3 +110,15 @@ jobs:
           app-id: ${{ secrets.azure_client_id }}
           client-secret: ${{ secrets.azure_client_secret }}
           tenant-id: ${{ secrets.azure_tenant_id }}
+
+      - name: Deployment Summary
+        if: success()
+        run: |
+          Write-Host "Deployment successful!"
+          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          Write-Host "Environment: ${{ inputs.target-environment }}"
+          Write-Host "Solution: ${{ inputs.solution-name }}"
+          Write-Host "Target URL: ${{ inputs.target-environment-url }}"
+          Write-Host "Settings File: settings/DeploymentSettings-${{ inputs.target-environment }}.json"
+          Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        shell: pwsh
